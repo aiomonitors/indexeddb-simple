@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { ExtractBooleanShape, KindaPartial, SelectFrom } from "./index.js";
 
-export interface DatabaseQuery<T extends Record<string, unknown>, R = unknown> {
+export interface DatabaseQuery<
+	T extends Record<string, unknown>,
+	K extends ExtractBooleanShape<T>,
+	R = unknown,
+> {
 	schema: z.Schema<T>;
+	queryShape: K;
 
 	where<K extends Record<string, unknown>>(shape: KindaPartial<T, K>): R;
 }
@@ -15,7 +20,6 @@ export interface DatabaseObjectStore<
 	schema: z.Schema<T>;
 	name: string;
 	readonly keyPath: Key;
-	indexes: Indexes;
 
 	addIndex<
 		N extends string,
@@ -28,5 +32,5 @@ export interface DatabaseObjectStore<
 
 	select<K extends ExtractBooleanShape<T>>(
 		shape: K,
-	): DatabaseQuery<T, SelectFrom<T, K>>;
+	): DatabaseQuery<T, K, SelectFrom<T, K>>;
 }

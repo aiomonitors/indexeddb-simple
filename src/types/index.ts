@@ -14,19 +14,6 @@ export type KeyPathIsPrimitive<T extends Record<string, unknown>> = {
 		: never;
 }[keyof T];
 
-type KeyPathIsPrimitiveNoKey<
-	T extends Record<string, unknown>,
-	K extends keyof T,
-> = {
-	[Key in keyof T]: T[Key] extends K ? never : Key extends string ? Key : never;
-}[keyof T];
-
-type Index<T extends string> = {
-	name: string;
-	field: T;
-	opts: { unique: boolean };
-};
-
 export type KindaPartial<
 	T extends Record<string, unknown>,
 	TNew extends Record<string, unknown>,

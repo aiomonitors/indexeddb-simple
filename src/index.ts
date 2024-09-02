@@ -52,13 +52,54 @@ export class Database {
 	}
 }
 
-class Query<T extends Record<string, unknown>, R = unknown>
-	implements DatabaseQuery<T, R>
+class Query<
+	T extends Record<string, unknown>,
+	K extends ExtractBooleanShape<T>,
+	R = unknown,
+> implements DatabaseQuery<T, K, R>
 {
 	schema: z.Schema<T>;
+	queryShape: K;
 
-	constructor(schema: z.Schema<T>) {
+	constructor(schema: z.Schema<T>, queryShape: K) {
 		this.schema = schema;
+		this.queryShape = queryShape;
+	}
+
+	private extractShapeSafe<
+		Raw extends T,
+		Target extends ExtractBooleanShape<T>,
+	>(obj: Raw, shape: Target) {
+		return Object.keys(obj).reduce(
+			(raw, key) => {
+				const val = obj[key];
+				const shapeVal = shape[key];
+
+				const valType = ["string", "boolean", "number"];
+
+				if (shapeVal && valType.includes(typeof val)) {
+					// @ts-expect-error Test
+					raw[key] = val;
+				}
+
+				if (shapeVal && typeof val === "object") {
+					// @ts-expect-error Test
+					raw[key] = this.extractShapeSafe(val, shapeVal);
+				}
+				return raw;
+			},
+			{} as SelectFrom<T, Target>,
+		);
+	}
+
+	public extractShape<Raw extends Record<string, unknown>>(obj: Raw) {
+		const parsed = this.schema.safeParse(obj);
+		if (parsed.success) {
+			console.log(parsed.data);
+			return this.extractShapeSafe(parsed.data, this.queryShape);
+		}
+
+		throw new Error("Could not parse");
 	}
 
 	public where<K extends Record<string, unknown>>(
@@ -82,7 +123,7 @@ class ObjectStore<
 	schema: z.Schema<T>;
 	name: string;
 	readonly keyPath: Key;
-	indexes: Indexes;
+	private indexes: Indexes;
 
 	constructor(
 		name: string,
@@ -93,12 +134,12 @@ class ObjectStore<
 		this.name = name;
 		this.schema = schema;
 		this.keyPath = keyPath;
-		// @ts-expect-error Blah
+		// @ts-expect-error Should be an empty object, typescript won't allow indexing if none are added
 		this.indexes = indexes ?? {};
 	}
 
 	public select<K extends ExtractBooleanShape<T>>(shape: K) {
-		return new Query<T, SelectFrom<T, K>>(this.schema);
+		return new Query<T, K, SelectFrom<T, K>>(this.schema, shape);
 	}
 
 	public addIndex<
@@ -146,25 +187,31 @@ export const createObjectStore = <
 	return new ObjectStore(name, schema, keyPath);
 };
 
-const userStore = createObjectStore(
-	"blah",
-	z.object({
-		name: z.string().optional(),
-		id: z.string().uuid(),
-		email: z.string(),
+const schema = z.object({
+	name: z.string().optional(),
+	id: z.string(),
+	email: z.string(),
+	meta: z.object({
+		createdAt: z.string(),
+		updatedAt: z.string(),
 	}),
-	"id",
-)
-	.addIndex("name", "email")
-	.addIndex("emailDate", "email");
+});
 
-const { name: nameIndex, emailDate } = userStore.indexes;
-//        ^?
+const query = new Query(schema, {
+	email: true,
+	name: true,
+	meta: {
+		createdAt: true,
+	},
+});
 
-const value = userStore
-	.select({
-		email: true,
-	})
-	.where({
-		name: "shihab",
-	});
+const value = query.extractShape({
+	email: "blah@gmail.com",
+	name: "blah",
+	id: "1-1-1-1",
+	meta: {
+		createdAt: "1",
+		updatedAt: "2",
+	},
+});
+console.log(value);
