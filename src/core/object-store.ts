@@ -10,6 +10,19 @@ const isIndex = (obj: unknown): obj is { path: string } =>
 	"path" in obj &&
 	typeof obj.path === "string";
 
+export class ObjectStoreInsertError extends Error {
+	error: DOMException | null;
+
+	constructor(
+		message: string,
+		error: DOMException | null,
+		errorOpts?: ErrorOptions,
+	) {
+		super(message, errorOpts);
+		this.error = error;
+	}
+}
+
 export class ObjectStore<
 	T extends Record<string, unknown>,
 	Key extends Readonly<string>,
@@ -38,13 +51,66 @@ export class ObjectStore<
 		return new Query<T, K, SelectFrom<T, K>>(this.schema, shape);
 	}
 
-	create(db: IDBDatabase): Promise<void> {
+	create(db: IDBDatabase): void {
 		const objStore = db.createObjectStore(this.name, { keyPath: this.keyPath });
 		for (const key in this.indexes) {
 			if (isIndex(this.indexes[key])) {
 				objStore.createIndex(key, this.indexes[key].path);
 			}
 		}
+	}
+
+	delete(db: IDBDatabase): void {
+		db.deleteObjectStore(this.name);
+	}
+
+	insert(db: IDBDatabase, item: unknown): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const parsedItem = this.schema.safeParse(item);
+			if (!parsedItem.success) {
+				reject(new Error("Item does not fit schema"));
+			}
+
+			const transaction = db
+				.transaction(this.name, "readwrite")
+				.objectStore(this.name)
+				.add(parsedItem.data);
+
+			transaction.onsuccess = () => {
+				resolve();
+			};
+
+			transaction.onerror = () => {
+				reject(
+					new ObjectStoreInsertError(
+						"Could not insert item into store",
+						transaction.error,
+					),
+				);
+			};
+		});
+	}
+
+	count(db: IDBDatabase): Promise<number> {
+		return new Promise((resolve, reject) => {
+			const transaction = db
+				.transaction(this.name, "readonly")
+				.objectStore(this.name)
+				.count();
+
+			transaction.onsuccess = () => {
+				resolve(transaction.result);
+			};
+
+			transaction.onerror = () => {
+				reject(
+					new ObjectStoreInsertError(
+						"Could not fetch count from database",
+						transaction.error,
+					),
+				);
+			};
+		});
 	}
 
 	public addIndex<

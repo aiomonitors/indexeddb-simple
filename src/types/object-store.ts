@@ -31,7 +31,7 @@ export interface DatabaseObjectStore<
 		path: K extends Key ? never : K,
 	): DatabaseObjectStore<T, Key, Indexes & Record<N, I>>;
 
-	create(db: IDBDatabase): Promise<void>;
+	create(db: IDBDatabase): void;
 
 	select<K extends ExtractBooleanShape<T>>(
 		shape: K,
