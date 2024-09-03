@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ExtractBooleanShape, KindaPartial, SelectFrom } from "./index.js";
+import { Database } from "../core/database.js";
 
 export interface DatabaseQuery<
 	T extends Record<string, unknown>,
@@ -30,7 +31,15 @@ export interface DatabaseObjectStore<
 		path: K extends Key ? never : K,
 	): DatabaseObjectStore<T, Key, Indexes & Record<N, I>>;
 
+	create(db: IDBDatabase): Promise<void>;
+
 	select<K extends ExtractBooleanShape<T>>(
 		shape: K,
 	): DatabaseQuery<T, K, SelectFrom<T, K>>;
+}
+
+export interface DatabaseMigrationHandler {
+	version: number;
+
+	handle(db: IDBDatabase): Promise<void>;
 }
