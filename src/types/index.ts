@@ -22,8 +22,8 @@ export type KindaPartial<
 };
 
 export type ExtractBooleanShape<T extends Record<string, unknown>> = {
-	[Key in keyof T]?: T[Key] extends Record<string, unknown>
-		? ExtractBooleanShape<T[Key]>
+	[Key in keyof T]?: NonNullable<T[Key]> extends Record<string, unknown>
+		? ExtractBooleanShape<NonNullable<T[Key]>>
 		: boolean;
 };
 
