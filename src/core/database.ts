@@ -1,6 +1,7 @@
 import {
 	DatabaseMigrationHandler,
 	DatabaseObjectStore,
+	DatabaseObjectStoreRaw,
 } from "../types/object-store.js";
 
 export class DatabaseConnectionError extends Error {
@@ -21,17 +22,20 @@ export class DatabaseUpgradeError extends Error {
 	}
 }
 
-export class Database {
+export class Database<T extends Record<string, DatabaseObjectStoreRaw>> {
 	name: string;
 	version: number;
+	readonly objectStores: T;
 	private handlers: DatabaseMigrationHandler[];
 
 	constructor(
 		name: string,
 		version: number,
+		objectStores: T,
 		handlers: DatabaseMigrationHandler[],
 	) {
 		this.name = name;
+		this.objectStores = objectStores;
 		this.version = version;
 		this.handlers = handlers;
 	}

@@ -13,6 +13,12 @@ export interface DatabaseQuery<
 	where<K extends Record<string, unknown>>(shape: KindaPartial<T, K>): R;
 }
 
+export interface DatabaseObjectStoreRaw {
+	name: string;
+	schema: z.Schema;
+	keyPath: Readonly<string>;
+}
+
 export interface DatabaseObjectStore<
 	T extends Record<string, unknown>,
 	Key extends Readonly<string>,
