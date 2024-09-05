@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ExtractBooleanShape, KindaPartial, SelectFrom } from "./index.js";
-import { Database } from "../core/database.js";
 
 export interface DatabaseQuery<
 	T extends Record<string, unknown>,
@@ -17,6 +16,8 @@ export interface DatabaseObjectStoreRaw {
 	name: string;
 	schema: z.Schema;
 	keyPath: Readonly<string>;
+
+	updateDbConnection(db: IDBDatabase): void;
 }
 
 export interface DatabaseObjectStore<

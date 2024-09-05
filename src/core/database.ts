@@ -64,6 +64,8 @@ export class Database<T extends Record<string, DatabaseObjectStoreRaw>> {
 					db.close();
 				};
 
+				this.updateObjectStores(db);
+
 				resolve(db);
 			};
 
@@ -75,6 +77,8 @@ export class Database<T extends Record<string, DatabaseObjectStoreRaw>> {
 					throw new DatabaseUpgradeError("DB Needs upgrade");
 				}
 
+				this.updateObjectStores(request.result);
+
 				this.handlers.forEach((handler) => {
 					if (handler.version === this.version) {
 						handler.handle(request.result);
@@ -82,6 +86,13 @@ export class Database<T extends Record<string, DatabaseObjectStoreRaw>> {
 				});
 			};
 		});
+	}
+
+	private updateObjectStores(db: IDBDatabase) {
+		for (const key in this.objectStores) {
+			const store = this.objectStores[key];
+			store.updateDbConnection(db);
+		}
 	}
 
 	public exec<

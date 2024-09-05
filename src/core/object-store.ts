@@ -1,6 +1,9 @@
 import z from "zod";
 import { ExtractBooleanShape, SelectFrom } from "../types/index.js";
-import { DatabaseObjectStore } from "../types/object-store.js";
+import {
+	DatabaseObjectStore,
+	DatabaseObjectStoreRaw,
+} from "../types/object-store.js";
 import { Query } from "./query.js";
 
 const isIndex = (obj: unknown): obj is { path: string } =>
@@ -24,15 +27,17 @@ export class ObjectStoreInsertError extends Error {
 }
 
 export class ObjectStore<
-	T extends Record<string, unknown>,
-	Key extends Readonly<string>,
-	Indexes = object,
-> implements DatabaseObjectStore<T, Key, Indexes>
+		T extends Record<string, unknown>,
+		Key extends Readonly<string>,
+		Indexes = object,
+	>
+	implements DatabaseObjectStore<T, Key, Indexes>, DatabaseObjectStoreRaw
 {
 	schema: z.Schema<T>;
 	name: string;
 	readonly keyPath: Key;
 	private indexes: Indexes;
+	db?: IDBDatabase;
 
 	constructor(
 		name: string,
@@ -51,8 +56,14 @@ export class ObjectStore<
 		return new Query<T, K, SelectFrom<T, K>>(this.schema, shape);
 	}
 
-	create(db: IDBDatabase): void {
-		const objStore = db.createObjectStore(this.name, { keyPath: this.keyPath });
+	create(): void {
+		if (!this.db) {
+			throw new Error("Database not connected");
+		}
+
+		const objStore = this.db.createObjectStore(this.name, {
+			keyPath: this.keyPath,
+		});
 		for (const key in this.indexes) {
 			if (isIndex(this.indexes[key])) {
 				objStore.createIndex(key, this.indexes[key].path);
@@ -60,18 +71,26 @@ export class ObjectStore<
 		}
 	}
 
-	delete(db: IDBDatabase): void {
-		db.deleteObjectStore(this.name);
+	delete(): void {
+		if (!this.db) {
+			throw new Error("Database not connected");
+		}
+
+		this.db.deleteObjectStore(this.name);
 	}
 
-	insert(db: IDBDatabase, item: unknown): Promise<void> {
+	insert(item: unknown): Promise<void> {
 		return new Promise((resolve, reject) => {
+			if (!this.db) {
+				throw new Error("Database not connected");
+			}
+
 			const parsedItem = this.schema.safeParse(item);
 			if (!parsedItem.success) {
 				reject(new Error("Item does not fit schema"));
 			}
 
-			const transaction = db
+			const transaction = this.db
 				.transaction(this.name, "readwrite")
 				.objectStore(this.name)
 				.add(parsedItem.data);
@@ -91,9 +110,13 @@ export class ObjectStore<
 		});
 	}
 
-	count(db: IDBDatabase): Promise<number> {
+	count(): Promise<number> {
 		return new Promise((resolve, reject) => {
-			const transaction = db
+			if (!this.db) {
+				throw new Error("Database not connected");
+			}
+
+			const transaction = this.db
 				.transaction(this.name, "readonly")
 				.objectStore(this.name)
 				.count();
@@ -113,9 +136,13 @@ export class ObjectStore<
 		});
 	}
 
-	exists(db: IDBDatabase, key: IDBValidKey): Promise<boolean> {
+	exists(key: IDBValidKey): Promise<boolean> {
 		return new Promise((resolve, reject) => {
-			const transaction = db
+			if (!this.db) {
+				throw new Error("Database not connected");
+			}
+
+			const transaction = this.db
 				.transaction(this.name, "readonly")
 				.objectStore(this.name)
 				.getKey(key);
@@ -137,6 +164,10 @@ export class ObjectStore<
 				);
 			};
 		});
+	}
+
+	public updateDbConnection(db: IDBDatabase): void {
+		this.db = db;
 	}
 
 	public addIndex<
