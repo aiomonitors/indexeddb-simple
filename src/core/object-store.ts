@@ -113,6 +113,32 @@ export class ObjectStore<
 		});
 	}
 
+	exists(db: IDBDatabase, key: IDBValidKey): Promise<boolean> {
+		return new Promise((resolve, reject) => {
+			const transaction = db
+				.transaction(this.name, "readonly")
+				.objectStore(this.name)
+				.getKey(key);
+
+			transaction.onsuccess = () => {
+				if (transaction.result != null) {
+					return resolve(true);
+				} else {
+					return resolve(false);
+				}
+			};
+
+			transaction.onerror = () => {
+				reject(
+					new ObjectStoreInsertError(
+						"Could not fetch count from database",
+						transaction.error,
+					),
+				);
+			};
+		});
+	}
+
 	public addIndex<
 		N extends string,
 		K extends keyof T,

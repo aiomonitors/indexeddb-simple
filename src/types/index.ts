@@ -1,5 +1,5 @@
 export type KeyPathHelper<T extends Record<string, unknown>> = {
-	[Key in keyof T]: T[Key] extends string
+	[Key in keyof T]: T[Key] extends IDBValidKey
 		? Key extends string
 			? Key
 			: never
